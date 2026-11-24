@@ -1,0 +1,66 @@
+{
+  "features": [
+    "magnitude",
+    "depth_km",
+    "latitude",
+    "longitude",
+    "magnitude_class_enc",
+    "nst",
+    "gap",
+    "rms"
+  ],
+  "target": "is_significant",
+  "n_train": 2930,
+  "n_test": 733,
+  "class_distribution": {
+    "0": 3637,
+    "1": 26
+  },
+  "classification_report": {
+    "0": {
+      "precision": 0.9986187845303868,
+      "recall": 0.9931318681318682,
+      "f1-score": 0.9958677685950413,
+      "support": 728.0
+    },
+    "1": {
+      "precision": 0.4444444444444444,
+      "recall": 0.8,
+      "f1-score": 0.5714285714285714,
+      "support": 5.0
+    },
+    "accuracy": 0.9918144611186903,
+    "macro avg": {
+      "precision": 0.7215316144874155,
+      "recall": 0.8965659340659341,
+      "f1-score": 0.7836481700118063,
+      "support": 733.0
+    },
+    "weighted avg": {
+      "precision": 0.994838604857222,
+      "recall": 0.9918144611186903,
+      "f1-score": 0.9929725489690763,
+      "support": 733.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      723,
+      5
+    ],
+    [
+      1,
+      4
+    ]
+  ],
+  "feature_importances": {
+    "magnitude": 0.3102,
+    "nst": 0.2523,
+    "gap": 0.1314,
+    "magnitude_class_enc": 0.1145,
+    "latitude": 0.0768,
+    "rms": 0.0475,
+    "longitude": 0.0467,
+    "depth_km": 0.0206
+  }
+}
