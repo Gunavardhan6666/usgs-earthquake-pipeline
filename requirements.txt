@@ -3,3 +3,13 @@ pandas>=2.2.3
 pydantic>=2.9.2
 python-dotenv>=1.0.1
 pytest>=8.3.3
+
+# Phase 2 — EDA & ML
+scikit-learn>=1.5.2
+matplotlib>=3.9.2
+seaborn>=0.13.2
+joblib>=1.4.2
+numpy>=1.26.4
+
+# Phase 3 — Flask Dashboard
+flask>=3.0.3

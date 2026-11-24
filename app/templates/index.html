@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>USGS Earthquake Analytics Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ---- Reset & Base ---- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    /* ---- Header ---- */
+    header {
+      background: linear-gradient(135deg, #1a1f2e, #232a3b);
+      border-bottom: 2px solid #e74c3c;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; color: #fff; }
+    header span.sub { font-size: 0.85rem; color: #95a5a6; margin-top: 2px; display: block; }
+    .badge {
+      background: #e74c3c; color: #fff; border-radius: 20px;
+      padding: 3px 12px; font-size: 0.75rem; font-weight: 600;
+    }
+
+    /* ---- Layout ---- */
+    main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+    /* ---- KPI Cards ---- */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .kpi-card {
+      background: #1a1f2e;
+      border: 1px solid #2c3347;
+      border-radius: 12px;
+      padding: 20px 18px;
+      text-align: center;
+    }
+    .kpi-card .value { font-size: 2rem; font-weight: 800; color: #3498db; }
+    .kpi-card .label { font-size: 0.78rem; color: #7f8c8d; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-card.red .value { color: #e74c3c; }
+    .kpi-card.green .value { color: #2ecc71; }
+    .kpi-card.orange .value { color: #f39c12; }
+
+    /* ---- Chart Grid ---- */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .chart-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+    @media (max-width: 900px) {
+      .chart-grid, .chart-grid.triple { grid-template-columns: 1fr; }
+    }
+
+    .chart-card {
+      background: #1a1f2e;
+      border: 1px solid #2c3347;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .chart-card h3 {
+      font-size: 0.9rem; font-weight: 600; color: #bdc3c7;
+      margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    canvas { width: 100% !important; }
+
+    /* ---- Table ---- */
+    .table-card {
+      background: #1a1f2e;
+      border: 1px solid #2c3347;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      overflow-x: auto;
+    }
+    .table-card h3 {
+      font-size: 0.9rem; font-weight: 600; color: #bdc3c7;
+      margin-bottom: 14px; text-transform: uppercase;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    thead th {
+      background: #232a3b; padding: 10px 12px;
+      text-align: left; color: #7f8c8d; font-weight: 600;
+      border-bottom: 1px solid #2c3347;
+    }
+    tbody tr { border-bottom: 1px solid #1e2435; transition: background 0.15s; }
+    tbody tr:hover { background: #232a3b; }
+    tbody td { padding: 9px 12px; }
+
+    /* Magnitude colour pills */
+    .pill {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 0.75rem; font-weight: 600;
+    }
+    .pill.minor    { background: #145a32; color: #2ecc71; }
+    .pill.light    { background: #7d6608; color: #f1c40f; }
+    .pill.moderate { background: #784212; color: #e67e22; }
+    .pill.strong   { background: #641e16; color: #e74c3c; }
+    .pill.major    { background: #4a235a; color: #bb8fce; }
+
+    /* Alert badges */
+    .alert-green  { color: #2ecc71; }
+    .alert-yellow { color: #f1c40f; }
+    .alert-orange { color: #e67e22; }
+    .alert-red    { color: #e74c3c; }
+
+    /* Status bar */
+    .status-bar {
+      background: #1a1f2e; border: 1px solid #2c3347;
+      border-radius: 8px; padding: 10px 18px;
+      display: flex; align-items: center; gap: 20px;
+      font-size: 0.8rem; color: #7f8c8d; margin-bottom: 24px;
+    }
+    .status-bar span strong { color: #bdc3c7; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #2ecc71; display: inline-block; }
+
+    /* Filters */
+    .filters {
+      display: flex; gap: 12px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .filters select, .filters input {
+      background: #1a1f2e; border: 1px solid #2c3347; color: #e0e0e0;
+      border-radius: 8px; padding: 7px 12px; font-size: 0.82rem;
+    }
+    .filters button {
+      background: #2980b9; color: #fff; border: none; border-radius: 8px;
+      padding: 7px 18px; font-size: 0.82rem; cursor: pointer; font-weight: 600;
+    }
+    .filters button:hover { background: #3498db; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🌍 USGS Earthquake Analytics</h1>
+    <span class="sub">Live seismic data pipeline — Medallion Architecture</span>
+  </div>
+  <span class="badge" id="run-status">Loading…</span>
+</header>
+
+<main>
+
+  <!-- Pipeline Status Bar -->
+  <div class="status-bar">
+    <span><span class="dot"></span>&nbsp; Pipeline</span>
+    <span>Last run: <strong id="last-run">—</strong></span>
+    <span>Total earthquakes: <strong id="total-quakes">—</strong></span>
+    <span>Rejected records: <strong id="total-rejected">—</strong></span>
+    <span>Valid%: <strong id="valid-pct">—</strong></span>
+  </div>
+
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="value" id="kpi-total">—</div>
+      <div class="label">Total Earthquakes (30d)</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="value" id="kpi-significant">—</div>
+      <div class="label">Significant Events</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="value" id="kpi-avg-mag">—</div>
+      <div class="label">Avg Magnitude</div>
+    </div>
+    <div class="kpi-card">
+      <div class="value" id="kpi-max-mag">—</div>
+      <div class="label">Max Magnitude</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="value" id="kpi-avg-depth">—</div>
+      <div class="label">Avg Depth (km)</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="value" id="kpi-tsunami">—</div>
+      <div class="label">Tsunami Alerts</div>
+    </div>
+  </div>
+
+  <!-- Charts Row 1 -->
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>📅 Earthquakes Per Day</h3>
+      <canvas id="chartDaily" height="220"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>📊 Magnitude Class Distribution</h3>
+      <canvas id="chartMagClass" height="220"></canvas>
+    </div>
+  </div>
+
+  <!-- Charts Row 2 -->
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>🌐 Top 15 Regions by Count</h3>
+      <canvas id="chartRegions" height="300"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>⚡ Avg Magnitude by Region (top 10)</h3>
+      <canvas id="chartRegionMag" height="300"></canvas>
+    </div>
+  </div>
+
+  <!-- Filters + Recent Earthquakes Table -->
+  <div class="filters">
+    <label style="color:#7f8c8d; font-size:0.82rem;">Filters:</label>
+    <select id="filterDays">
+      <option value="7">Last 7 days</option>
+      <option value="30" selected>Last 30 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+    <select id="filterMinMag">
+      <option value="0">All magnitudes</option>
+      <option value="2.5">≥ 2.5</option>
+      <option value="4.0">≥ 4.0</option>
+      <option value="5.0">≥ 5.0</option>
+      <option value="6.0">≥ 6.0</option>
+    </select>
+    <select id="filterLimit">
+      <option value="50">50 rows</option>
+      <option value="100" selected>100 rows</option>
+      <option value="200">200 rows</option>
+    </select>
+    <button onclick="loadTable()">🔄 Apply</button>
+  </div>
+
+  <div class="table-card">
+    <h3>🗒️ Recent Earthquake Records</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Time (UTC)</th>
+          <th>Place</th>
+          <th>Region</th>
+          <th>Mag</th>
+          <th>Class</th>
+          <th>Depth (km)</th>
+          <th>Significance</th>
+          <th>Alert</th>
+          <th>Tsunami</th>
+        </tr>
+      </thead>
+      <tbody id="quake-table-body">
+        <tr><td colspan="9" style="text-align:center;color:#7f8c8d;padding:20px;">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<script>
+// ---- Helpers ----
+const $ = id => document.getElementById(id);
+const fmt2 = n => n != null ? (+n).toFixed(2) : '—';
+const fmtDate = s => s ? s.replace('T', ' ').replace('Z', ' UTC') : '—';
+
+// ---- Chart.js default theme ----
+Chart.defaults.color = '#7f8c8d';
+Chart.defaults.borderColor = '#2c3347';
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+Chart.defaults.font.size = 11;
+
+let chartDaily, chartMagClass, chartRegions, chartRegionMag;
+
+const MAG_COLORS = {
+  minor: '#2ecc71', light: '#f1c40f',
+  moderate: '#e67e22', strong: '#e74c3c', major: '#8e44ad'
+};
+
+// ---- Pipeline status ----
+async function loadStatus() {
+  const r = await fetch('/api/pipeline/status');
+  const d = await r.json();
+  if (d.latest_run) {
+    $('last-run').textContent = fmtDate(d.latest_run.finished_at_utc);
+    $('valid-pct').textContent = (d.latest_run.valid_pct ?? '—') + '%';
+    $('run-status').textContent = d.latest_run.status;
+    $('run-status').style.background = d.latest_run.status === 'SUCCESS' ? '#1e8449' : '#e74c3c';
+  }
+  $('total-quakes').textContent = (d.total_earthquakes ?? 0).toLocaleString();
+  $('total-rejected').textContent = (d.total_rejected ?? 0).toLocaleString();
+}
+
+// ---- Daily chart ----
+async function loadDaily() {
+  const r = await fetch('/api/summary/daily?days=30');
+  const { data } = await r.json();
+  const labels = data.map(d => d.event_date_utc).reverse();
+  const counts = data.map(d => d.event_count).reverse();
+  const avgs   = data.map(d => d.avg_magnitude).reverse();
+
+  // KPIs
+  const totalCount = counts.reduce((a,b) => a+b, 0);
+  const maxMag = Math.max(...data.map(d => d.max_magnitude));
+  const avgMag = (data.reduce((a,d) => a + d.avg_magnitude, 0) / data.length).toFixed(2);
+  const sigCount = data.reduce((a,d) => a + d.significant_count, 0);
+  const avgDepth = (data.reduce((a,d) => a + (d.avg_depth_km||0), 0) / data.length).toFixed(1);
+  const tsunami = data.reduce((a,d) => a + d.tsunami_flag_count, 0);
+
+  $('kpi-total').textContent = totalCount.toLocaleString();
+  $('kpi-significant').textContent = sigCount.toLocaleString();
+  $('kpi-avg-mag').textContent = avgMag;
+  $('kpi-max-mag').textContent = maxMag.toFixed(1);
+  $('kpi-avg-depth').textContent = avgDepth + ' km';
+  $('kpi-tsunami').textContent = tsunami;
+
+  if (chartDaily) chartDaily.destroy();
+  chartDaily = new Chart($('chartDaily'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Daily Count', data: counts,
+          backgroundColor: 'rgba(52,152,219,0.5)', borderColor: '#3498db',
+          borderWidth: 1, yAxisID: 'y',
+        },
+        {
+          label: 'Avg Magnitude', data: avgs,
+          type: 'line', borderColor: '#e74c3c', backgroundColor: 'transparent',
+          pointRadius: 2, borderWidth: 2, yAxisID: 'y2',
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: '#bdc3c7' } } },
+      scales: {
+        y:  { ticks: { color: '#3498db' }, grid: { color: '#2c3347' } },
+        y2: { position: 'right', ticks: { color: '#e74c3c' }, grid: { display: false } },
+      },
+    },
+  });
+}
+
+// ---- Magnitude class chart ----
+async function loadMagClass() {
+  const r = await fetch('/api/summary/magnitude');
+  const { data } = await r.json();
+  const labels = data.map(d => d.magnitude_class);
+  const counts = data.map(d => d.count);
+  const colors = labels.map(l => MAG_COLORS[l] || '#7f8c8d');
+
+  if (chartMagClass) chartMagClass.destroy();
+  chartMagClass = new Chart($('chartMagClass'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: counts, backgroundColor: colors, borderWidth: 2, borderColor: '#1a1f2e' }],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#bdc3c7', padding: 14 } },
+      },
+    },
+  });
+}
+
+// ---- Regions charts ----
+async function loadRegions() {
+  const r = await fetch('/api/summary/regions?top=15');
+  const { data } = await r.json();
+  const labels  = data.map(d => d.region).reverse();
+  const counts  = data.map(d => d.event_count).reverse();
+  const avgMags = data.map(d => d.avg_magnitude);
+  const top10Labels  = data.slice(0,10).map(d => d.region).reverse();
+  const top10Mags    = data.slice(0,10).map(d => d.avg_magnitude).reverse();
+
+  if (chartRegions) chartRegions.destroy();
+  chartRegions = new Chart($('chartRegions'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Count', data: counts,
+        backgroundColor: 'rgba(52,152,219,0.6)', borderColor: '#3498db', borderWidth: 1,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#2c3347' } },
+        y: { ticks: { color: '#bdc3c7', font: { size: 10 } } },
+      },
+    },
+  });
+
+  if (chartRegionMag) chartRegionMag.destroy();
+  chartRegionMag = new Chart($('chartRegionMag'), {
+    type: 'bar',
+    data: {
+      labels: top10Labels,
+      datasets: [{
+        label: 'Avg Magnitude', data: top10Mags,
+        backgroundColor: 'rgba(231,76,60,0.6)', borderColor: '#e74c3c', borderWidth: 1,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#2c3347' }, min: 0, max: 8 },
+        y: { ticks: { color: '#bdc3c7', font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+// ---- Earthquake table ----
+async function loadTable() {
+  const days  = $('filterDays').value;
+  const minMag = $('filterMinMag').value;
+  const limit = $('filterLimit').value;
+
+  const r = await fetch(`/api/earthquakes?days=${days}&min_mag=${minMag}&limit=${limit}`);
+  const { data } = await r.json();
+  const tbody = $('quake-table-body');
+
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#7f8c8d;padding:20px;">No records found for these filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(q => {
+    const alertClass = q.alert ? `alert-${q.alert}` : '';
+    const alertLabel = q.alert ? q.alert.toUpperCase() : '—';
+    const magClass = (q.magnitude_class || '').toLowerCase();
+    return `
+      <tr>
+        <td>${fmtDate(q.event_time_utc)}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${q.place||''}">${q.place||'—'}</td>
+        <td>${q.region||'—'}</td>
+        <td><strong>${fmt2(q.magnitude)}</strong></td>
+        <td><span class="pill ${magClass}">${q.magnitude_class||'—'}</span></td>
+        <td>${fmt2(q.depth_km)}</td>
+        <td>${q.significance||'—'}</td>
+        <td class="${alertClass}">${alertLabel}</td>
+        <td>${q.tsunami ? '🌊 Yes' : 'No'}</td>
+      </tr>`;
+  }).join('');
+}
+
+// ---- Init ----
+(async () => {
+  await Promise.all([loadStatus(), loadDaily(), loadMagClass(), loadRegions()]);
+  await loadTable();
+})();
+</script>
+</body>
+</html>
